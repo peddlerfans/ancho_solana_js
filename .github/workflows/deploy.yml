@@ -3,62 +3,161 @@ name: Nuxt 3 Production Deployment
 on:
   push:
     branches:
-      - main # 只有推送到 main 分支才触发部署
+      - main
 
 jobs:
   build_and_deploy:
-    runs-on: ubuntu-latest # 在 GitHub 的云端机器上运行
+    runs-on: ubuntu-latest
 
     steps:
       - name: 1. Checkout 仓库代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史，避免权限问题
 
       - name: 2. Setup Node.js 环境
         uses: actions/setup-node@v4
         with:
-          node-version: "20" # 确保与您的服务器 Node.js 版本一致
+          node-version: "20"
+          cache: 'pnpm'  # 添加pnpm缓存
 
-      # 新增一个手动安装 pnpm 的步骤
-      - name: 2.1. 全局安装 pnpm (手动方式，最稳定)
+      - name: 2.1. 安装 pnpm
         run: npm install -g pnpm
 
-      - name: 3. 安装依赖和构建项目 (CI)
+      - name: 3. 安装依赖和构建项目
         run: |
           pnpm install
-          pnpm run build # 编译生成 .output 目录
+          pnpm run build
 
-      - name: 4.0. Upload Files to Server
-        # ⚠️ 修复：将 action 升级到 v1 稳定版，以确保 'exclude' 参数正常工作
-        uses: appleboy/scp-action@v1 # 使用专门的上传 Action
+      - name: 4.0. 清理敏感文件和缓存
+        run: |
+          # 清理可能引起权限问题的文件
+          rm -rf .git/hooks/*
+          find .git/objects -type f -exec chmod 644 {} \;
+          
+          # 创建干净的发布目录
+          mkdir -p dist
+          cp -r .output dist/
+          cp package.json pnpm-lock.yaml dist/
+          cp .env.example dist/.env.production
+          
+          # 移除.git目录
+          rm -rf dist/.git
+
+      - name: 4.1. 使用rsync同步文件到服务器
+        uses: burnett01/rsync-deployments@v6.0.0  # 使用rsync更可靠
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "./" # 复制 CI 机器上的当前目录下的所有文件
-          target: ${{ secrets.DEPLOY_PATH }} # 目标路径
-          overwrite: true
-          # 排除 node_modules 和 .git，保持服务器环境干净。
-          # 升级 action 版本是修复 .git 权限问题的关键。
-          exclude: "node_modules, .git" 
+          switches: -avz --delete
+          path: dist/  # 只同步构建后的dist目录
+          remote_path: ${{ secrets.DEPLOY_PATH }}
+          remote_host: ${{ secrets.SERVER_HOST }}
+          remote_user: ${{ secrets.SERVER_USER }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # 步骤 4.1: 重启 PM2 进程 (使用 SSH Action 执行命令)
-      - name: 4.1. Restart PM2 Application
+      - name: 4.2. 在服务器执行部署
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            PROJECT_DIR="${{ secrets.DEPLOY_PATH }}" 
+            # ===== 服务器端部署脚本 =====
+            set -e  # 遇到错误立即退出
+            
+            PROJECT_DIR="${{ secrets.DEPLOY_PATH }}"
             APP_NAME="ancho_solana_js"
             
-            # 确保 deploy 用户有写入权限 (防止之前文件创建的权限问题)
-            # 注意：如果您的 SSH 用户就是 deploy，这行可能不需要或需要权限
-            # sudo chown -R deploy:deploy $PROJECT_DIR
+            echo "🚀 开始部署到: $PROJECT_DIR"
             
-            # 切换到项目根目录，这是 PM2 启动的关键
+            # 1. 修复目录权限
+            echo "🔧 修复权限..."
+            sudo chown -R ${{ secrets.SERVER_USER }}:${{ secrets.SERVER_USER }} $PROJECT_DIR 2>/dev/null || true
+            find $PROJECT_DIR -type d -exec chmod 755 {} \;
+            find $PROJECT_DIR -type f -exec chmod 644 {} \;
+            
+            # 2. 清理残留的.git目录（如果有）
+            find $PROJECT_DIR -name ".git" -type d -exec rm -rf {} + 2>/dev/null || true
+            
+            # 3. 进入项目目录
             cd $PROJECT_DIR
             
-            # 优先重载，失败则启动
-            pm2 reload $APP_NAME 2>/dev/null || \
-            pm2 start npm --name "$APP_NAME" -- run start
+            # 4. 生产环境依赖安装
+            echo "📦 安装生产依赖..."
+            if [ -f pnpm-lock.yaml ]; then
+              pnpm install --prod --frozen-lockfile
+            elif [ -f package-lock.json ]; then
+              npm ci --only=production
+            else
+              npm install --only=production
+            fi
+            
+            # 5. 确保环境文件存在
+            if [ ! -f .env.production ]; then
+              if [ -f .env.example ]; then
+                cp .env.example .env.production
+                echo "⚠️  请编辑 .env.production 文件"
+              fi
+            fi
+            
+            # 6. PM2应用管理
+            echo "🔄 管理PM2进程..."
+            
+            # 创建PM2配置文件
+            cat > ecosystem.config.js << 'EOF'
+            module.exports = {
+              apps: [{
+                name: "$APP_NAME",
+                script: 'node_modules/.bin/nuxi',
+                args: 'start',
+                cwd: '$PROJECT_DIR',
+                instances: 1,
+                exec_mode: 'fork',
+                max_memory_restart: '500M',
+                env: {
+                  NODE_ENV: 'production',
+                  PORT: 3000
+                },
+                error_file: '/var/log/nuxt-app/err.log',
+                out_file: '/var/log/nuxt-app/out.log',
+                merge_logs: true,
+                time: true,
+                autorestart: true
+              }]
+            }
+            EOF
+            
+            # 启动或重启应用
+            if pm2 list | grep -q "$APP_NAME"; then
+              echo "🔄 重启现有应用..."
+              pm2 reload ecosystem.config.js --update-env
+            else
+              echo "🚀 启动新应用..."
+              pm2 start ecosystem.config.js
+            fi
+            
+            pm2 save 2>/dev/null || true
+            
+            # 7. 健康检查
+            echo "🏥 执行健康检查..."
+            sleep 8  # 给应用启动时间
+            
+            MAX_RETRIES=5
+            for i in $(seq 1 $MAX_RETRIES); do
+              if curl -s -f "http://localhost:3000/api/health" > /dev/null 2>&1; then
+                echo "✅ 应用启动成功 (尝试 $i 次)"
+                break
+              fi
+              
+              if [ $i -eq $MAX_RETRIES ]; then
+                echo "❌ 应用启动失败，查看日志..."
+                pm2 logs "$APP_NAME" --lines 30
+                exit 1
+              fi
+              
+              echo "⏳ 等待应用启动... ($i/$MAX_RETRIES)"
+              sleep 3
+            done
+            
+            echo "🎉 部署完成！"
+            echo "🔗 访问: http://localhost:3000"
+            # ===== 脚本结束 =====
