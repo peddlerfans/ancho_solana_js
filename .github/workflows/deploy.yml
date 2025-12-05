@@ -33,31 +33,27 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-# ... (在部署步骤 4 中)
+
           script: |
             PROJECT_DIR="${{ secrets.DEPLOY_PATH }}" 
             APP_NAME="ancho_solana_js"
-            
-            # 步骤 4.1: 创建目录并进入 (保证 PM2 启动路径正确)
+
+            # 1. 创建目录并进入
             mkdir -p $PROJECT_DIR
             cd $PROJECT_DIR
-            
-            # 步骤 4.2: 清理旧的 .output 目录 (防止旧文件残留)
+
+            # 2. 清理旧的 .output 目录
             rm -rf .output
-  
-            # 步骤 4.3: [关键修复] 使用 rsync 复制项目文件
-            # 修复 rsync 命令：确保源路径以 / 结尾，并将目标路径设置为当前目录 .
-            # 注意：这里我们使用 rsync 复制除了 .output 以外的所有文件
-            rsync -avz --exclude 'node_modules' --exclude '.git' --exclude '.output' --delete-after ${{ github.workspace }}/ ./
-            
-            # 步骤 4.4: 复制新构建的 .output 目录
-            # 使用 scp 复制 .output 目录到当前目录 .
-            scp -r ${{ github.workspace }}/.output ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:'${{ secrets.DEPLOY_PATH }}/.'
-            
-            # 步骤 4.5: 复制 package.json 和 lock 文件 (保险起见，虽然 rsync 应该包含它)
-            scp ${{ github.workspace }}/package.json ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/package.json
-            scp ${{ github.workspace }}/pnpm-lock.yaml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/pnpm-lock.yaml
-  
-            # 步骤 4.6: 重启 PM2 进程
+
+            # 3. [关键修复] 使用 SCP/Rsync 复制所有所需文件 (替换了之前的复杂逻辑)
+
+            # a) 复制项目根目录下的所有文件 (package.json, nuxt.config.js, .env, etc.)
+            # 注意：这里的 . 是指 GitHub Actions 机器上的工作目录
+            scp -r ${{ github.workspace }}/. ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:'${{ secrets.DEPLOY_PATH }}'
+
+            # b) 清理服务器上不需要的文件夹 (排除 node_modules 和 .git)
+            rm -rf node_modules .git
+
+            # 4. 重启 PM2 进程
             pm2 reload $APP_NAME 2>/dev/null || \
             pm2 start npm --name "$APP_NAME" -- run start
