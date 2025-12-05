@@ -18,7 +18,6 @@ export default defineNuxtConfig({
       autoprefixer: {},
     },
   },
-
   // // 1. 指定服务器监听的IP和端口（重要！）
   // devServer: {
   //   host: "0.0.0.0", // 允许外部访问
