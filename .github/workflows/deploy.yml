@@ -33,29 +33,31 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+# ... (在部署步骤 4 中)
           script: |
-            # 统一使用变量，确保路径一致
             PROJECT_DIR="${{ secrets.DEPLOY_PATH }}" 
-            APP_NAME="ancho_solana_js" # <--- 将应用名统一为您的项目名
+            APP_NAME="ancho_solana_js"
             
-            # 步骤 4.1: 创建目录并停止应用 (首次部署)
+            # 步骤 4.1: 创建目录并进入 (保证 PM2 启动路径正确)
             mkdir -p $PROJECT_DIR
-            
-            # 步骤 4.2: 清理旧的 .output 目录 (防止旧文件残留)
-            rm -rf $PROJECT_DIR/.output
-            
-            # 步骤 4.3 & 4.4: 文件同步 (rsync 和 scp)
-            # 注意：rsync 复制所有文件到目标目录
-            rsync -avz --exclude 'node_modules' --exclude '.git' --exclude '.output' --delete-after ${{ github.workspace }}/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}
-            scp -r ${{ github.workspace }}/.output ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}
-            
-            # 步骤 4.5: 进入工作目录并重启/启动 PM2 (关键修复)
-            
-            # 1. 切换到项目根目录，这是 PM2 启动的关键！
             cd $PROJECT_DIR
             
-            # 2. 优先重载 (用于后续部署)，失败则启动 (用于首次部署)
-            # 使用 npm start 脚本启动，这是 Nuxt 3 最推荐的生产启动方式
+            # 步骤 4.2: 清理旧的 .output 目录 (防止旧文件残留)
+            rm -rf .output
+  
+            # 步骤 4.3: [关键修复] 使用 rsync 复制项目文件
+            # 修复 rsync 命令：确保源路径以 / 结尾，并将目标路径设置为当前目录 .
+            # 注意：这里我们使用 rsync 复制除了 .output 以外的所有文件
+            rsync -avz --exclude 'node_modules' --exclude '.git' --exclude '.output' --delete-after ${{ github.workspace }}/ ./
+            
+            # 步骤 4.4: 复制新构建的 .output 目录
+            # 使用 scp 复制 .output 目录到当前目录 .
+            scp -r ${{ github.workspace }}/.output ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:'${{ secrets.DEPLOY_PATH }}/.'
+            
+            # 步骤 4.5: 复制 package.json 和 lock 文件 (保险起见，虽然 rsync 应该包含它)
+            scp ${{ github.workspace }}/package.json ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/package.json
+            scp ${{ github.workspace }}/pnpm-lock.yaml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/pnpm-lock.yaml
+  
+            # 步骤 4.6: 重启 PM2 进程
             pm2 reload $APP_NAME 2>/dev/null || \
             pm2 start npm --name "$APP_NAME" -- run start
-  
