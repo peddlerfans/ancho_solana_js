@@ -162,6 +162,7 @@
 </template>
 
 <script setup>
+    // "dev": "nuxt dev --port 4000",
 definePageMeta({
     ssr: false
 })
