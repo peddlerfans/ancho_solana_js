@@ -17,16 +17,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20" # 确保与您的服务器 Node.js 版本一致
-     # 新增一个手动安装 pnpm 的步骤
+
+      # 新增一个手动安装 pnpm 的步骤
       - name: 2.1. 全局安装 pnpm (手动方式，最稳定)
         run: npm install -g pnpm
+
       - name: 3. 安装依赖和构建项目 (CI)
         run: |
           pnpm install
           pnpm run build # 编译生成 .output 目录
 
       - name: 4.0. Upload Files to Server
-        uses: appleboy/scp-action@v0.1.7 # 使用专门的上传 Action
+        # ⚠️ 修复：将 action 升级到 v1 稳定版，以确保 'exclude' 参数正常工作
+        uses: appleboy/scp-action@v1 # 使用专门的上传 Action
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
@@ -34,7 +37,8 @@ jobs:
           source: "./" # 复制 CI 机器上的当前目录下的所有文件
           target: ${{ secrets.DEPLOY_PATH }} # 目标路径
           overwrite: true
-          # 排除 node_modules 和 .git，保持服务器环境干净
+          # 排除 node_modules 和 .git，保持服务器环境干净。
+          # 升级 action 版本是修复 .git 权限问题的关键。
           exclude: "node_modules, .git" 
 
       # 步骤 4.1: 重启 PM2 进程 (使用 SSH Action 执行命令)
@@ -49,11 +53,12 @@ jobs:
             APP_NAME="ancho_solana_js"
             
             # 确保 deploy 用户有写入权限 (防止之前文件创建的权限问题)
-            sudo chown -R deploy:deploy $PROJECT_DIR
+            # 注意：如果您的 SSH 用户就是 deploy，这行可能不需要或需要权限
+            # sudo chown -R deploy:deploy $PROJECT_DIR
             
             # 切换到项目根目录，这是 PM2 启动的关键
             cd $PROJECT_DIR
             
-            # 优先重载，失败则启动 (启动逻辑不变)
+            # 优先重载，失败则启动
             pm2 reload $APP_NAME 2>/dev/null || \
             pm2 start npm --name "$APP_NAME" -- run start
