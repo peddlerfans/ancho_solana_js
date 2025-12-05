@@ -1,0 +1,16 @@
+# Nuxt
+.nuxt
+.output
+.env
+.env.*
+
+# Node
+node_modules
+*.log
+
+# OS
+.DS_Store
+.idea
+
+# Vercel
+.vercel

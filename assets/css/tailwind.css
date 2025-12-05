@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { @apply antialiased; }
+  body { @apply bg-slate-50 text-slate-800; }
+  a:not(.btn) { @apply text-sky-600 hover:text-sky-700; }
+}
+
+@layer components {
+  .container { @apply max-w-3xl mx-auto px-5 py-10 font-sans; }
+  .section-title { @apply text-slate-800 text-xl font-semibold; }
+  .subtitle { @apply text-slate-500 text-lg; }
+
+  .card { @apply bg-white rounded-xl p-8 shadow-sm ring-1 ring-slate-100; }
+
+  /* Minimal, unified button */
+  .btn { @apply inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 shadow-sm transition-colors transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/30 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 hover:-translate-y-0.5 hover:shadow active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed; }
+  /* Keep aliases to the same minimal style for consistency */
+  .btn-primary { @apply inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 shadow-sm transition-colors transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/30 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 hover:-translate-y-0.5 hover:shadow active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-secondary { @apply inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 shadow-sm transition-colors transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/30 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900 hover:-translate-y-0.5 hover:shadow active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-ghost { @apply inline-flex items-center justify-center rounded-md px-4 py-2.5 text-sm font-medium text-slate-700 bg-transparent hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/30; }
+
+  .link { @apply inline-block px-4 py-2 rounded-lg bg-slate-100 text-slate-800 no-underline font-medium transition hover:bg-slate-200; }
+}

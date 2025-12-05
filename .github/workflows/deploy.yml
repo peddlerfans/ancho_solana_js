@@ -1,0 +1,48 @@
+name: Nuxt 3 Production Deployment
+
+on:
+  push:
+    branches:
+      - main # 只有推送到 main 分支才触发部署
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest # 在 GitHub 的云端机器上运行
+
+    steps:
+      - name: 1. Checkout 仓库代码
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20" # 确保与您的服务器 Node.js 版本一致
+
+      - name: 3. 安装依赖和构建项目 (CI)
+        run: |
+          npm install
+          npm run build # 编译生成 .output 目录
+
+      - name: 4. 部署到阿里云服务器 (CD)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # 步骤 4.1: 创建目录并停止应用 (首次部署)
+            mkdir -p ${{ secrets.DEPLOY_PATH }}
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            # 步骤 4.2: 清理旧的 .output 目录 (防止旧文件残留)
+            rm -rf .output
+
+            # 步骤 4.3: 从 CI 机器复制构建好的文件
+            # 使用 rsync 复制所有文件，但排除 node_modules
+            rsync -avz --exclude 'node_modules' --exclude '.git' --exclude '.output' --delete-after ${{ github.workspace }}/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}
+
+            # 步骤 4.4: 复制新构建的 .output 目录
+            scp -r ${{ github.workspace }}/.output ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}
+
+            # 步骤 4.5: 重启 PM2 进程
+            pm2 reload ancho-nuxt-app || pm2 start .output/server/index.mjs --name "ancho-nuxt-app"
