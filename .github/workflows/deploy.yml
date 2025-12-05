@@ -17,11 +17,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20" # 确保与您的服务器 Node.js 版本一致
-      - name: 2.1. 安装 pnpm
-        uses: pnpm/action-setup@v2 # 这是一个专门用于安装 pnpm 的 Action
-        with:
-          version: 8 # 指定 pnpm 版本
-          run_install: false
+     # 新增一个手动安装 pnpm 的步骤
+      - name: 2.1. 全局安装 pnpm (手动方式，最稳定)
+        run: npm install -g pnpm
       - name: 3. 安装依赖和构建项目 (CI)
         run: |
           pnpm install
