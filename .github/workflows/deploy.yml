@@ -34,19 +34,28 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # 统一使用变量，确保路径一致
+            PROJECT_DIR="${{ secrets.DEPLOY_PATH }}" 
+            APP_NAME="ancho_solana_js" # <--- 将应用名统一为您的项目名
+            
             # 步骤 4.1: 创建目录并停止应用 (首次部署)
-            mkdir -p ${{ secrets.DEPLOY_PATH }}
-            cd ${{ secrets.DEPLOY_PATH }}
-
+            mkdir -p $PROJECT_DIR
+            
             # 步骤 4.2: 清理旧的 .output 目录 (防止旧文件残留)
-            rm -rf .output
-
-            # 步骤 4.3: 从 CI 机器复制构建好的文件
-            # 使用 rsync 复制所有文件，但排除 node_modules
+            rm -rf $PROJECT_DIR/.output
+            
+            # 步骤 4.3 & 4.4: 文件同步 (rsync 和 scp)
+            # 注意：rsync 复制所有文件到目标目录
             rsync -avz --exclude 'node_modules' --exclude '.git' --exclude '.output' --delete-after ${{ github.workspace }}/ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}
-
-            # 步骤 4.4: 复制新构建的 .output 目录
             scp -r ${{ github.workspace }}/.output ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}
-
-            # 步骤 4.5: 重启 PM2 进程
-            pm2 reload ancho-nuxt-app || pm2 start .output/server/index.mjs --name "ancho-nuxt-app"
+            
+            # 步骤 4.5: 进入工作目录并重启/启动 PM2 (关键修复)
+            
+            # 1. 切换到项目根目录，这是 PM2 启动的关键！
+            cd $PROJECT_DIR
+            
+            # 2. 优先重载 (用于后续部署)，失败则启动 (用于首次部署)
+            # 使用 npm start 脚本启动，这是 Nuxt 3 最推荐的生产启动方式
+            pm2 reload $APP_NAME 2>/dev/null || \
+            pm2 start npm --name "$APP_NAME" -- run start
+  
