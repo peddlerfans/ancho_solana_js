@@ -61,4 +61,6 @@ jobs:
             
             # 优先重载，失败则启动
             pm2 reload $APP_NAME 2>/dev/null || \
-            pm2 start npm --name "$APP_NAME" -- run start
+            pm2 start ecosystem.config.cjs
+            pm2 save
+            # pm2 start npm --name "$APP_NAME" -- run start
