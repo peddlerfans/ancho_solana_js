@@ -20,8 +20,8 @@ jobs:
 
       - name: 3. 安装依赖和构建项目 (CI)
         run: |
-          npm install
-          npm run build # 编译生成 .output 目录
+          pnpm install
+          pnpm run build # 编译生成 .output 目录
 
       - name: 4. 部署到阿里云服务器 (CD)
         uses: appleboy/ssh-action@v1.0.0
