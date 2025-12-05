@@ -213,7 +213,6 @@ const userRules = {
         { min: 6, message: '密码至少6位', trigger: 'blur' }
     ]
 }
-
 // 获取用户列表
 const fetchUsers = async () => {
     loading.value = true
