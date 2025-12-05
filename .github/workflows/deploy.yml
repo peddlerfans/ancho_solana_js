@@ -25,33 +25,35 @@ jobs:
           pnpm install
           pnpm run build # 编译生成 .output 目录
 
-      - name: 4. 部署到阿里云服务器 (CD)
+      - name: 4.0. Upload Files to Server
+        uses: appleboy/scp-action@v0.1.7 # 使用专门的上传 Action
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "./" # 复制 CI 机器上的当前目录下的所有文件
+          target: ${{ secrets.DEPLOY_PATH }} # 目标路径
+          overwrite: true
+          # 排除 node_modules 和 .git，保持服务器环境干净
+          exclude: "node_modules, .git" 
+
+      # 步骤 4.1: 重启 PM2 进程 (使用 SSH Action 执行命令)
+      - name: 4.1. Restart PM2 Application
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-
           script: |
             PROJECT_DIR="${{ secrets.DEPLOY_PATH }}" 
             APP_NAME="ancho_solana_js"
-
-            # 1. 创建目录并进入
-            mkdir -p $PROJECT_DIR
+            
+            # 确保 deploy 用户有写入权限 (防止之前文件创建的权限问题)
+            sudo chown -R deploy:deploy $PROJECT_DIR
+            
+            # 切换到项目根目录，这是 PM2 启动的关键
             cd $PROJECT_DIR
-
-            # 2. 清理旧的 .output 目录
-            rm -rf .output
-
-            # 3. [关键修复] 使用 SCP/Rsync 复制所有所需文件 (替换了之前的复杂逻辑)
-
-            # a) 复制项目根目录下的所有文件 (package.json, nuxt.config.js, .env, etc.)
-            # 注意：这里的 . 是指 GitHub Actions 机器上的工作目录
-            scp -r ${{ github.workspace }}/. ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:'${{ secrets.DEPLOY_PATH }}'
-
-            # b) 清理服务器上不需要的文件夹 (排除 node_modules 和 .git)
-            rm -rf node_modules .git
-
-            # 4. 重启 PM2 进程
+            
+            # 优先重载，失败则启动 (启动逻辑不变)
             pm2 reload $APP_NAME 2>/dev/null || \
             pm2 start npm --name "$APP_NAME" -- run start
