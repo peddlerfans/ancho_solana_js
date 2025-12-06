@@ -61,6 +61,8 @@ export default defineNuxtConfig({
       [UNHEAD_INDEX_ABS]: UNHEAD_PROXY_ABS,
       "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
     },
+    // 将 'server/solana' 目录复制到 `.output/server/solana`
+    copy: [{ from: "server/solana", to: "server/solana", srcDir: true }],
   },
 
   routeRules: {
