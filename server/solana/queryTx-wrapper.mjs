@@ -13,7 +13,7 @@ try {
   // 这里使用绝对路径 require，避免相对路径被 .output 重写导致找不到
   ({ queryTx } = requireCjs(cjsFilePath));
 } catch (e) {
-  console.error('failed to require queryTx.cjs at', cjsPath, e);
+  console.error('failed to require queryTx.cjs at', cjsFilePath, e);
   throw e;
 }
 
