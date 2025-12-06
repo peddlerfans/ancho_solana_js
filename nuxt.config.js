@@ -27,11 +27,6 @@ export default defineNuxtConfig({
   // // 2. 如果是SSR模式，确保这是默认值：
   ssr: false,
 
-  // 性能优化
-  nitro: {
-    preset: "node-server", // 使用Node.js服务器
-  },
-
   // 减少构建体积
   build: {
     analyze: false, // 生产环境关闭分析
@@ -54,15 +49,14 @@ export default defineNuxtConfig({
         "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
       },
     },
-    vite: {
-      optimizeDeps: {
-        // 告诉 Vite 优化/预打包 jayson 库
-        include: ["jayson"],
-      },
+    optimizeDeps: {
+      // 告诉 Vite 优化/预打包 jayson 库
+      include: ["jayson"],
     },
   },
 
   nitro: {
+    preset: "node-server", // 使用Node.js服务器
     alias: {
       [UNHEAD_INDEX_ABS]: UNHEAD_PROXY_ABS,
       "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
