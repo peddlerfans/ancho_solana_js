@@ -1,9 +1,11 @@
 // 🚀 核心修复：在 ESM 环境中启用 require
-import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+// 导入 path 模块来构造绝对路径
+import * as path from 'node:path'; // <-- 引入 path 模块
 
 // 创建一个作用域内的 require 函数，基于当前文件的 URL
-const require = createRequire(import.meta.url);
+const requireCjs = createRequire(import.meta.url); 
 // 这个 API 路由文件本身是 ESM 格式，但内部使用 Node.js 的 require
 export default defineEventHandler(async (event) => {
   try {
@@ -19,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
     // 🚀 关键：使用 require 绕过 Nitro/Vite 对 Solana 依赖链的 ESM 编译
     // 路径是相对路径，从当前 API 目录 (server/api/...) 向上两级到 server/solana/queryTx.cjs
-    const { queryTx } = require("../../solana/queryTx.cjs");
+    const { queryTx } = requireCjs("../../solana/queryTx.cjs");
 
     // 调用 CJS 文件中的 Solana 逻辑
     const result = await queryTx(signature, mint);
