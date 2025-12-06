@@ -54,6 +54,12 @@ export default defineNuxtConfig({
         "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
       },
     },
+    vite: {
+      optimizeDeps: {
+        // 告诉 Vite 优化/预打包 jayson 库
+        include: ["jayson"],
+      },
+    },
   },
 
   nitro: {
