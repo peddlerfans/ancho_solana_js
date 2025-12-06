@@ -42,76 +42,50 @@ export default defineNuxtConfig({
   //   },
   // },
 
-  // 1. 统一的 NITRO 配置 (服务器端打包)
+  vite: {
+    resolve: {
+      alias: {
+        [UNHEAD_INDEX_ABS]: UNHEAD_PROXY_ABS,
+        "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
+        // 关键：将 jayson 重定向到一个空模块
+        jayson: "/dev/null",
+        "jayson/lib/client/browser": "/dev/null",
+      },
+    },
+    optimizeDeps: {
+      // 从优化列表中移除 jayson
+      exclude: ["jayson"],
+    },
+    // 构建配置
+    build: {
+      rollupOptions: {
+        external: ["jayson"], // 外部化 jayson
+      },
+    },
+  },
+
   nitro: {
     preset: "node-server",
-    alias: {
-      [UNHEAD_INDEX_ABS]: UNHEAD_PROXY_ABS,
-      "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
-    },
-    // 强制内联所有 Solana 和相关库，这是服务器端最可靠的兼容性保障
+    // 在 Nitro 中忽略 jayson
     externals: {
-      inline: [
-        "jayson",
-        "@solana/web3.js",
-        "@coral-xyz/anchor",
-        "@solana/spl-token",
-        "bn.js",
-        "buffer",
-      ],
-      // 仍然将 jayson 标记为 external 以满足某些 resolver 的要求
+      external: ["jayson"],
+    },
+    rollupConfig: {
       external: ["jayson"],
     },
   },
 
-  // 2. 统一的 VITE 配置 (客户端和开发环境打包)
-  vite: {
-    resolve: {
-      alias: {
-        // Unhead 别名
-        [UNHEAD_INDEX_ABS]: UNHEAD_PROXY_ABS,
-        "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
-
-        // 🚀 核心修复：直接使用字符串别名，将报错的目录导入重写到正确的文件
-        // 错误信息是: "Did you mean to import jayson/lib/client/browser/index.js?"
-        "jayson/lib/client/browser": "jayson/lib/client/browser/index.js",
-
-        // 同时兼容带末尾斜杠的导入
-        "jayson/lib/client/browser/": "jayson/lib/client/browser/index.js",
-      },
-    },
-    optimizeDeps: {
-      include: [
-        "jayson",
-        "jayson/lib/client/browser/index.js",
-        "bn.js",
-        "buffer",
-      ],
-      force: true,
-    },
-    build: {
-      commonjsOptions: {
-        include: [/jayson/, /node_modules/],
-        transformMixedEsModules: true,
-      },
-      rollupOptions: {
-        external: ["jayson", "@solana/web3.js", "@coral-xyz/anchor"],
-      },
-    },
-  },
-
-    // 减少构建体积
+  // 告诉 Nuxt 不要处理 jayson
   build: {
-    analyze: false, 
-    extractCSS: true, 
-    // 使用 transpile 强制 Babel 处理这些 CommonJS 库
+    transpile: [], // 清空 transpile 列表
+    // 或者只转译你需要的
     transpile: [
-      'jayson',
-      'bn.js',
-      '@solana/web3.js',
-      '@solana/spl-token',
-      '@coral-xyz/anchor'
-    ]
+      "@solana/web3.js",
+      "@solana/spl-token",
+      "@coral-xyz/anchor",
+      "bn.js",
+      "buffer",
+    ],
   },
 
   routeRules: {
