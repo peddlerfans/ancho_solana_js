@@ -1,6 +1,7 @@
 // server/solana/queryTx-wrapper.mjs
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+// 导入 path 模块来构造绝对路径，确保在 ESM 环境中可用
+import * as path from 'node:path'; 
 
 const requireCjs = createRequire(import.meta.url);
 
