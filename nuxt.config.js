@@ -1,153 +1,82 @@
-// nuxt.config.js - 最终修复版
-import { join, resolve } from "node:path";
+import { join, resolve } from "node:path"; // ⚠️ 确保导入了 resolve
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
-
 const UNHEAD_INDEX_ABS = join(
   process.cwd(),
   "node_modules/@unhead/vue/dist/index.mjs"
 );
 const UNHEAD_PROXY_ABS = join(process.cwd(), "aliases/unhead-index-proxy.mjs");
+// 获取当前目录的绝对路径，用于解析 node_modules
 const currentDir = dirname(fileURLToPath(import.meta.url));
-
 export default defineNuxtConfig({
+  // devtools: { enabled: true },
   css: ["~/assets/css/tailwind.css"],
+
   postcss: {
     plugins: {
       tailwindcss: {},
       autoprefixer: {},
     },
   },
+  // // 1. 指定服务器监听的IP和端口（重要！）
+  // devServer: {
+  //   host: "0.0.0.0", // 允许外部访问
+  //   port: 3000, // 默认端口
+  // },
+
+  // // 2. 如果是SSR模式，确保这是默认值：
   ssr: false,
-  
-  // ========== 核心修复开始 ==========
+
+  // 减少构建体积
   build: {
-    analyze: false,
-    extractCSS: true,
-    // 明确需要转译的包
-    transpile: [
-      '@solana/web3.js',
-      '@solana/spl-token',
-      '@coral-xyz/anchor',
-      'bn.js',
-      'buffer',
-      'tweetnacl',
-      'bs58'
-    ]
+    analyze: false, // 生产环境关闭分析
+    extractCSS: true, // 提取CSS减少JS体积
   },
-  
+
+  // 安全设置
   security: {
     headers: {
       crossOriginResourcePolicy: "same-origin",
       crossOriginEmbedderPolicy: "require-corp",
     },
   },
-  
+
+  // Workaround for @unhead/vue export change (CapoPlugin moved to legacy build)
   vite: {
     resolve: {
       alias: {
-        // 1. 修复 unhead 问题
-        'unhead': resolve(currentDir, 'node_modules/unhead/dist/index.mjs'),
-        '@unhead/vue/dist/index.mjs': UNHEAD_PROXY_ABS,
-        
-        // 2. 修复 jayson 问题 - 提供正确的文件路径
-        'jayson': resolve(currentDir, 'node_modules/jayson/lib/index.js'),
-        'jayson/lib/client/browser': resolve(currentDir, 'node_modules/jayson/lib/client/browser/index.js'),
-        
-        // 3. 修复其他可能的问题
-        'superstruct': resolve(currentDir, 'node_modules/superstruct/dist/index.js'),
-        'rpc-websockets': resolve(currentDir, 'node_modules/rpc-websockets/dist/index.js'),
-        '@noble/hashes/sha3': resolve(currentDir, 'node_modules/@noble/hashes/sha3.js'),
-        
-        // 4. Solana 相关的修复
-        '@solana/web3.js': resolve(currentDir, 'node_modules/@solana/web3.js/lib/index.browser.cjs.js'),
-      }
+        [UNHEAD_INDEX_ABS]: UNHEAD_PROXY_ABS,
+        "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
+      },
     },
     optimizeDeps: {
-      include: [
-        // 预构建这些包
-        'jayson/lib/index.js',
-        'jayson/lib/client/browser/index.js',
-        '@solana/web3.js',
-        '@solana/spl-token',
-        '@coral-xyz/anchor',
-        'bn.js',
-        'buffer',
-        'tweetnacl',
-        'bs58',
-        'unhead',
-        '@unhead/vue'
-      ],
-      force: true, // 强制重新预构建
-      esbuildOptions: {
-        // ES模块配置
-        mainFields: ['module', 'main', 'browser'],
-        resolveExtensions: ['.mjs', '.js', '.ts', '.json']
-      }
+      // 告诉 Vite 优化/预打包 jayson 库
+      include: ["jayson"],
     },
-    build: {
-      commonjsOptions: {
-        // 将这些包转为 CommonJS
-        include: [/jayson/, /@solana/, /@coral-xyz/, /node_modules/],
-        transformMixedEsModules: true,
-        // 动态 require 转换
-        dynamicRequireTargets: [
-          'node_modules/@solana/web3.js/**/*.js',
-          'node_modules/jayson/**/*.js'
-        ]
-      },
-      rollupOptions: {
-        external: [], // 不外部化，全部打包
-        output: {
-          // 确保模块正确导出
-          interop: 'auto'
-        }
-      }
-    }
   },
-  
+
   nitro: {
-    preset: "node-server",
-    // 服务器端打包配置
-    esbuild: {
-      options: {
-        // 确保 jayson 正确打包
-        mainFields: ['module', 'main'],
-        resolveExtensions: ['.mjs', '.js', '.ts'],
-        // 添加 banner 修复导入
-        banner: {
-          js: `
-            // Fix for jayson import
-            import jaysonBrowser from 'jayson/lib/client/browser/index.js';
-            if (typeof globalThis !== 'undefined') {
-              globalThis.jayson = globalThis.jayson || {};
-              globalThis.jayson.client = globalThis.jayson.client || {};
-              globalThis.jayson.client.browser = jaysonBrowser;
-            }
-          `
-        }
-      }
+    preset: "node-server", // 使用Node.js服务器
+    alias: {
+      [UNHEAD_INDEX_ABS]: UNHEAD_PROXY_ABS,
+      "@unhead/vue/dist/index.mjs": UNHEAD_PROXY_ABS,
     },
-    // 内联这些包
-    inline: [
-      'jayson',
-      'unhead',
-      '@unhead/vue'
-    ]
   },
-  // ========== 核心修复结束 ==========
-  
+
   routeRules: {
     "/admin/**": { ssr: false },
     "/user/**": { ssr: false },
   },
-  
+
   runtimeConfig: {
+    // 私有环境变量（仅服务端可访问）
     supabaseUrl: process.env.SUPABASE_URL,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+    // 可选：仅服务端使用的 Service Key，可绕过 RLS（请勿暴露到客户端）
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
     supabaseTable: process.env.SUPABASE_TABLE || "profiles",
-    
+
+    // 公开环境变量（客户端也可访问）
     public: {
       apiBase: "/api",
       supabaseUrl: process.env.SUPABASE_URL,
@@ -155,6 +84,6 @@ export default defineNuxtConfig({
       supabaseTable: process.env.SUPABASE_TABLE || "profiles",
     },
   },
-  
+
   compatibilityDate: "2025-11-20",
 });
