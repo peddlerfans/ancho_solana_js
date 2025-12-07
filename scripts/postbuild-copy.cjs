@@ -1,19 +1,22 @@
-// scripts/postbuild-copy.js
+// scripts/postbuild-copy.cjs
 const fs = require("fs");
 const path = require("path");
 
-const root = process.cwd();
+const srcDir = path.resolve("server", "solana");
+const destDir = path.resolve(".output", "server", "solana");
 
-const src = path.join(root, "server", "solana", "queryTx.cjs");
-const destDir = path.join(root, ".output", "server", "solana");
-const dest = path.join(destDir, "queryTx.cjs");
-
-if (!fs.existsSync(src)) {
-  console.error("❌ queryTx.cjs not found:", src);
+if (!fs.existsSync(srcDir)) {
+  console.error("postbuild-copy: source dir not found:", srcDir);
   process.exit(1);
 }
 
 fs.mkdirSync(destDir, { recursive: true });
-fs.copyFileSync(src, dest);
 
-console.log("✅ Copied queryTx.cjs to .output");
+const files = fs.readdirSync(srcDir);
+files.forEach((f) => {
+  if (f.endsWith('.cjs')) {
+    fs.copyFileSync(path.join(srcDir, f), path.join(destDir, f));
+    console.log("Copied", f);
+  }
+});
+console.log("postbuild-copy done.");
