@@ -1,6 +1,6 @@
-import { queryTx } from "~/server/solana/queryTx-wrapper.mjs";
-
 export default defineEventHandler(async (event) => {
+  const { queryTx } = require("../../solana/queryTx.cjs");
+
   const body = await readBody(event);
   const { signature, mint } = body || {};
 
