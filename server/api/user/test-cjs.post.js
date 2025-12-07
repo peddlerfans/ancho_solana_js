@@ -1,3 +1,7 @@
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
 export default defineEventHandler(async (event) => {
   const { queryTx } = require("../../solana/queryTx.cjs");
 
