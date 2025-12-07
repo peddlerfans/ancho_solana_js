@@ -35,7 +35,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           # 修正：只上传必要的编译输出和启动文件，彻底避免 .git 权限问题
-          source: ".output, package.json" 
+          source: ".output, package.json server/solana" 
           target: ${{ secrets.DEPLOY_PATH }} # 目标路径
           overwrite: true
           # 尽管已修改 source，但保留 exclude 规则作为额外的保险
