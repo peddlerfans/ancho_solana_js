@@ -13,17 +13,23 @@ export default defineEventHandler(async (event) => {
   }
 
   // 优先从 .output/server/solana 读取（生产）
-  const prodPath = join(process.cwd(), ".output", "server", "solana", "deposit.cjs");
-  const devPath = join(process.cwd(), "server", "solana", "deposit.cjs");
+  const prodPath = join(
+    process.cwd(),
+    ".output",
+    "server",
+    "solana",
+    "deposit.cjs"
+  );
 
   let mod;
   try {
-    // Prefer production copy, fall back to dev path
-    try { mod = requireCjs(prodPath); }
-    catch (e) { mod = requireCjs(devPath); }
+    mod = requireCjs(prodPath);
   } catch (e) {
     console.error("Failed to load deposit.cjs:", e);
-    throw createError({ statusCode: 500, statusMessage: "internal server error" });
+    throw createError({
+      statusCode: 500,
+      statusMessage: "internal server error",
+    });
   }
 
   const { buildDepositTransactions } = mod;
@@ -34,6 +40,9 @@ export default defineEventHandler(async (event) => {
   } catch (err) {
     // 将内部错误映射为 h3 createError 以便 Nuxt 返回正确 statusCode
     const statusCode = err.statusCode || 500;
-    throw createError({ statusCode, statusMessage: err.message || "internal error" });
+    throw createError({
+      statusCode,
+      statusMessage: err.message || "internal error",
+    });
   }
 });
