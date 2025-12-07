@@ -1,16 +1,25 @@
-// server/solana/queryTx-wrapper.mjs
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { createRequire } from "node:module";
+import { join } from "node:path";
 
 const requireCjs = createRequire(import.meta.url);
-const cjsPath = join(process.cwd(), 'server', 'solana', 'queryTx.cjs');
 
-let queryTx;
-try {
-  ({ queryTx } = requireCjs(cjsPath));
-} catch (e) {
-  console.error('require queryTx.cjs failed at', cjsPath, e);
-  throw e;
-}
+export default defineEventHandler(async (event) => {
+  const { signature, mint } = await readBody(event);
 
-export { queryTx };
+  const cjsPath = join(
+    process.cwd(),
+    ".output",
+    "server",
+    "solana",
+    "queryTx.cjs"
+  );
+
+  const { queryTx } = requireCjs(cjsPath);
+
+  const result = await queryTx(signature, mint);
+
+  return {
+    ok: true,
+    result,
+  };
+});
