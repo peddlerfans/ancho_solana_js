@@ -7,7 +7,8 @@
     "build": "nuxt build && node scripts/postbuild-copy.js",
     "preview": "nuxt preview",
     "start": "node .output/server/index.mjs",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "postbuild": "node scripts/postbuild-copy.cjs"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",
